@@ -21,7 +21,7 @@ pip install -r requirements.txt
 gcloud auth application-default login            # Google credentials, never committed
 
 # 1. Online Retail II: download the .xlsx from https://archive.ics.uci.edu/dataset/502/online+retail+ii into data/
-python scripts/convert_online_retail_xlsx.py data/online_retail_II.xlsx
+python scripts/convert_online_retail_xlsx.py data/online_retail_II.xlsx data
 
 # 2. Load raw tables into BigQuery (rerunnable: truncates and reloads)
 python scripts/load_raw.py --project <your-gcp-project-id>
