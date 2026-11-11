@@ -1,0 +1,38 @@
+# Copy this file to ~/.dbt/profiles.yml (never commit the real one).
+#
+# Local development uses your own Google login:
+#   gcloud auth application-default login
+#
+# CI (GitHub Actions) uses a service account key passed in as a secret.
+
+wholesale_account_health:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'excellent-badge-514402-s5') }}"
+      dataset: dbt_dev
+      location: US
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+
+    ci:
+      type: bigquery
+      method: service-account
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      keyfile: "{{ env_var('GCP_KEYFILE_PATH') }}"
+      dataset: dbt_ci
+      location: US
+      threads: 4
+      job_execution_timeout_seconds: 300
+
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'excellent-badge-514402-s5') }}"
+      dataset: analytics
+      location: US
+      threads: 4
+      job_execution_timeout_seconds: 300

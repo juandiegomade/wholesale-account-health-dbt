@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: stg_online_retail__invoice_lines
+    description: >
+      One row per invoice line from the Online Retail II dataset, both sheets combined.
+      Values are renamed, typed and trimmed, and flags mark the lines the intermediate
+      layer needs to treat differently (cancellations, non-merchandise codes, exact
+      duplicates). The only rows removed here are the 22,523 rows of the 2009-2010
+      sheet that are repeated in the 2010-2011 sheet (2010-12-01 to 2010-12-09).
+    columns:
+      - name: invoice_line_key
+        description: Surrogate key. Hash of the raw row plus its copy number, so exact duplicate lines get distinct keys.
+        data_tests:
+          - unique
+          - not_null
+      - name: source_sheet
+        description: Workbook sheet the line came from.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['2009-2010', '2010-2011']
+      - name: invoice_number
+        description: Invoice number as text. Starts with "C" for cancellations, "A" for bad-debt adjustments.
+        data_tests:
+          - not_null
+      - name: stock_code
+        description: Product or service code, upper-cased (the source mixes "85123a" and "85123A").
+        data_tests:
+          - not_null
+      - name: product_description
+        description: Trimmed description. Null when the source left it blank.
+      - name: quantity
+        description: Units on the line. Negative on cancellations and stock adjustments.
+        data_tests:
+          - not_null
+      - name: invoiced_at
+        description: Invoice timestamp (UK local time, as recorded).
+        data_tests:
+          - not_null
+      - name: invoice_date
+        description: Calendar date of the invoice.
+        data_tests:
+          - not_null
+      - name: unit_price
+        description: Unit price in GBP. Zero or negative on some adjustment lines.
+        data_tests:
+          - not_null
+      - name: customer_id
+        description: Customer number. Null on about 23% of lines (guest or unidentified buyers).
+      - name: country
+        description: Customer's country.
+      - name: is_cancellation
+        description: True when the invoice number starts with "C".
+      - name: is_bad_debt_adjustment
+        description: True when the invoice number starts with "A".
+      - name: is_non_merchandise
+        description: >
+          True for service, fee and bookkeeping codes (postage, carriage, manual entries,
+          discounts, bank charges, gift vouchers, test products...). The list lives in
+          dbt_project.yml vars.
+      - name: is_exact_duplicate
+        description: True for the 2nd, 3rd... copy of a line that is identical to another line in every column.

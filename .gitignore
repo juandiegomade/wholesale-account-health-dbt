@@ -1,0 +1,27 @@
+# dbt
+target/
+dbt_packages/
+logs/
+profiles.yml
+
+# Raw data that is downloaded, not committed (license + size)
+data/online_retail_ii_*.csv
+data/*.xlsx
+
+# Credentials
+*.json
+!.sqlfluff.json
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Power BI temp files
+dashboards/*.pbix.bak

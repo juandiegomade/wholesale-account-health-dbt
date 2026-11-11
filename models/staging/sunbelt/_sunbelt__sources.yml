@@ -1,0 +1,34 @@
+version: 2
+
+sources:
+  - name: sunbelt
+    description: >
+      Synthetic order export for "Sunbelt Wholesale Foods", a fictional regional food
+      distributor. Built to be messy on purpose (duplicates, mixed date formats,
+      inconsistent casing, missing fulfillment quantities). Unlike Online Retail II, it
+      records how much of each order line was actually shipped.
+    schema: raw
+    tables:
+      - name: sunbelt_order_lines
+        description: The raw order export (3,421 rows).
+        columns:
+          - name: order_id
+            description: Order number.
+          - name: order_date
+            description: Order date, in two formats (YYYY-MM-DD and MM/DD/YYYY).
+          - name: account_name
+            description: Customer account name, inconsistently cased.
+          - name: sku
+            description: Product code, as "SKU-1001" or "sku1001".
+          - name: product
+            description: Product description.
+          - name: qty_ordered
+            description: Units ordered.
+          - name: qty_fulfilled
+            description: Units shipped. Blank on some lines.
+          - name: unit_price
+            description: Unit price in USD.
+          - name: fulfillment_status
+            description: PARTIAL, UNFULFILLED, or blank when shipped in full.
+          - name: channel
+            description: Sales channel.

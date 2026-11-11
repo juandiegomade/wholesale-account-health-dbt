@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: stg_sunbelt__order_lines
+    description: >
+      One row per order line from the Sunbelt export, with types cast and formats
+      standardized: both date formats parsed, account names in one casing, SKUs in one
+      format. No rows are removed here.
+    columns:
+      - name: order_line_key
+        description: Surrogate key. Hash of the raw row plus its copy number, so exact duplicate lines get distinct keys.
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: Order number.
+        data_tests:
+          - not_null
+      - name: order_date
+        description: Order date. Every raw value must parse; a null here means a new date format appeared.
+        data_tests:
+          - not_null
+      - name: account_name
+        description: Account name in title case. The raw export spells the same 30 accounts 60 different ways.
+        data_tests:
+          - not_null
+      - name: sku
+        description: Product code standardized to "SKU-NNNN".
+        data_tests:
+          - not_null
+      - name: product_name
+        description: Product description.
+      - name: qty_ordered
+        description: Units ordered.
+        data_tests:
+          - not_null
+      - name: qty_fulfilled
+        description: Units shipped. Null when the export left it blank; the intermediate layer decides how to fill it.
+      - name: unit_price
+        description: Unit price in USD.
+        data_tests:
+          - not_null
+      - name: fulfillment_status
+        description: PARTIAL, UNFULFILLED, or null when the line shipped in full.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['PARTIAL', 'UNFULFILLED']
+      - name: sales_channel
+        description: Sales channel.
+      - name: is_exact_duplicate
+        description: True for the 2nd, 3rd... copy of a line identical to another line in every column.

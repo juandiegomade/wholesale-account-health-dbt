@@ -1,0 +1,52 @@
+name: wholesale_account_health
+version: "0.1.0"
+config-version: 2
+
+profile: wholesale_account_health
+
+flags:
+  send_anonymous_usage_stats: false
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+seed-paths: ["seeds"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+vars:
+  # Account segmentation thresholds, in days since the account's last order.
+  # Same defaults as the original Python pipeline (config.yaml).
+  dormant_days: 90
+  at_risk_days: 45
+
+  # Online Retail II: stock codes that are services, fees or bookkeeping entries,
+  # not merchandise. Flagged in staging; how they are treated is decided downstream.
+  non_merchandise_stock_codes:
+    - POST          # postage
+    - DOT           # dotcom postage
+    - C2            # carriage
+    - C3            # carriage
+    - M             # manual entry
+    - D             # discount
+    - S             # samples
+    - B             # adjust bad debt
+    - BANK CHARGES
+    - AMAZONFEE
+    - CRUK          # charity commission
+  non_merchandise_stock_code_prefixes:
+    - ADJUST        # ADJUST, ADJUST2
+    - GIFT          # gift vouchers
+    - TEST          # test products
+
+models:
+  wholesale_account_health:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table

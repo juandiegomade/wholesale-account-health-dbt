@@ -1,0 +1,37 @@
+version: 2
+
+sources:
+  - name: online_retail
+    description: >
+      UCI "Online Retail II" dataset: every transaction of a UK-based online giftware
+      wholesaler between 2009-12-01 and 2011-12-09. Many customers are wholesalers.
+      Published as one Excel workbook with two sheets, loaded as two raw tables.
+      Source: Daqing Chen, "Online Retail II", UCI Machine Learning Repository,
+      https://archive.ics.uci.edu/dataset/502/online+retail+ii
+    schema: raw
+    tables:
+      - name: online_retail_ii_2009_2010
+        description: >
+          Sheet "Year 2009-2010" (525,461 rows). Its last nine days, 2010-12-01 to
+          2010-12-09, are repeated row for row at the start of the 2010-2011 sheet.
+        columns: &online_retail_columns
+          - name: invoice
+            description: 6-digit invoice number. A leading "C" marks a cancellation; a leading "A" marks a bad-debt adjustment.
+          - name: stock_code
+            description: Product code, mostly 5 digits plus an optional letter. A few codes are services or fees (POST, M, BANK CHARGES...).
+          - name: description
+            description: Product description as typed in the source system.
+          - name: quantity
+            description: Units on the line. Negative for cancellations and stock adjustments.
+          - name: invoice_date
+            description: Invoice timestamp, YYYY-MM-DD HH:MM:SS.
+          - name: price
+            description: Unit price in GBP.
+          - name: customer_id
+            description: 5-digit customer number. Blank on about 23% of lines.
+          - name: country
+            description: Customer's country.
+
+      - name: online_retail_ii_2010_2011
+        description: Sheet "Year 2010-2011" (541,910 rows).
+        columns: *online_retail_columns
