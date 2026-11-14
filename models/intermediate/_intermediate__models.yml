@@ -1,0 +1,108 @@
+version: 2
+
+models:
+  - name: int_order_lines__unioned
+    description: 'Both sources in one shape: one row per order line with the same column names and types. Nothing is filtered; each source keeps its flags so the next model can decide what to exclude.'
+    columns:
+      - name: order_line_key
+        description: Surrogate key carried over from staging.
+        data_tests:
+          - unique
+          - not_null
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: order_id
+        description: Order or invoice number.
+      - name: order_date
+        description: Order date.
+      - name: account_id
+        description: Customer ID (Online Retail) or account name (Sunbelt). Null when the source has no customer on the line.
+      - name: account_name
+        description: Account name. Online Retail has no names, so this repeats the customer ID.
+      - name: country
+        description: Customer country. Online Retail only.
+      - name: sku
+        description: Product code.
+      - name: product_name
+        description: Product description.
+      - name: qty_ordered
+        description: Quantity ordered. Negative on returns.
+      - name: qty_fulfilled
+        description: Quantity shipped. Null for Online Retail (not tracked) and where Sunbelt left it blank.
+      - name: unit_price
+        description: Price per unit, in the source currency (GBP for Online Retail, USD for Sunbelt).
+      - name: fulfillment_status
+        description: PARTIAL, UNFULFILLED or null. Sunbelt only.
+      - name: has_fulfillment_tracking
+        description: True when the source records shipped quantities.
+        data_tests:
+          - not_null
+      - name: is_duplicate_line
+        description: 'Online Retail: every column matches an earlier line. Sunbelt: same order, product, account and date as an earlier line (the Python pipeline rule).'
+        data_tests:
+          - not_null
+      - name: is_cancellation
+        description: Invoice number starts with C. Online Retail only.
+      - name: is_bad_debt_adjustment
+        description: Invoice number starts with A. Online Retail only.
+      - name: is_non_merchandise
+        description: Postage, fees, manual adjustments, vouchers or test codes. Online Retail only.
+
+  - name: int_order_lines__cleaned
+    description: 'Every order line with the business rules applied. No row is deleted: each line gets an exclusion_reason (null means kept), plus revenue and potential unfilled revenue. A line with several problems gets the first reason that applies, in the order listed on exclusion_reason.'
+    columns:
+      - name: order_line_key
+        description: Surrogate key carried over from staging.
+        data_tests:
+          - unique
+          - not_null
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: account_key
+        description: Hash of source and account ID. Null when the line has no account.
+      - name: product_key
+        description: Hash of source and product code.
+        data_tests:
+          - not_null
+      - name: qty_fulfilled
+        description: Quantity shipped. Where the source left it blank or does not track it, assumed equal to the quantity ordered.
+      - name: used_fulfillment_assumption
+        description: True when a source that tracks shipments left the shipped quantity blank, so "shipped in full" was assumed.
+        data_tests:
+          - not_null
+      - name: revenue
+        description: Quantity shipped times unit price.
+      - name: potential_unfilled_revenue
+        description: Quantity ordered but not shipped, times unit price. Counted only on lines the source marks PARTIAL or UNFULFILLED; otherwise 0.
+      - name: exclusion_reason
+        description: 'Why the line is left out of the marts, or null if kept. Checked in this order: duplicate_line, unparseable_date, missing_account, return_or_cancellation, bad_debt_adjustment, non_merchandise, no_price, missing_quantity.'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - duplicate_line
+                  - unparseable_date
+                  - missing_account
+                  - return_or_cancellation
+                  - bad_debt_adjustment
+                  - non_merchandise
+                  - no_price
+                  - missing_quantity
+      - name: is_included
+        description: True when exclusion_reason is null.
+        data_tests:
+          - not_null
