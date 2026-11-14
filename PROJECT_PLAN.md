@@ -218,4 +218,10 @@ wholesale-account-health-dbt/
 
 ## 14. Status log
 
-- **Weekend 1 (Nov 2026):** scaffold, loaders, sources, both staging models, generic + singular tests, sqlfluff clean. Staging validated in BigQuery on sample raw tables. Next: load the full raw data from a machine with Google credentials and run `dbt build --select staging`.
+- **Weekend 1 (Nov 2026): done.** Full raw data loaded and validated in BigQuery on 2026-11-14:
+  - Raw: 525,461 + 541,910 Online Retail II rows; 3,421 Sunbelt rows.
+  - `stg_online_retail__invoice_lines`: 1,044,848 rows (= raw minus the 22,523-row overlap), 1,044,848 unique keys, 0 unparseable dates, quantities or prices; Dec 2009 to Dec 2011.
+  - Staging-level counts (after the overlap is removed, so lower than the raw figures in 5.1): 19,165 cancellation lines, 6 bad-debt lines, 5,813 non-merchandise lines, 11,812 extra copies of exact duplicates, 235,287 lines with no customer.
+  - `stg_sunbelt__order_lines`: 3,421 rows, unique keys, 0 unparseable dates, 15 exact duplicates, 30 accounts.
+  - Row-reconcile tests and the multiset sheet-overlap test (PR #1): 0 failures.
+  - Next: weekend 2, intermediate and marts.
