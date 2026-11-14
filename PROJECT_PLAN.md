@@ -1,6 +1,6 @@
 # Project Plan: Wholesale Account Health — an Analytics Engineering Showcase
 
-**Owner:** Juan Diego Machado · **Version:** 1.1 (updated after weekend 1) · **Date:** November 10, 2026
+**Owner:** Juan Diego Machado · **Version:** 1.2 (updated after weekend 2) · **Date:** November 10, 2026
 **Repo name (planned):** `wholesale-account-health-dbt`
 
 > This document is the brief for anyone (person or AI assistant) helping build this project. Section 12 has specific instructions for AI assistants.
@@ -134,7 +134,7 @@ CSV files ──(scripts/load_raw.py)──▶ BigQuery dataset `raw`
 | Type | Examples |
 |---|---|
 | Generic tests (`schema.yml`) | `unique` + `not_null` on every primary key; `relationships` from facts to dims; `accepted_values` on `account_status` and `source_system` |
-| dbt_utils tests (deferred: add `packages.yml` once `dbt deps` can run on your machine) | `unique_combination_of_columns` on the dedup key; `expression_is_true` for `revenue >= 0` and `unfilled_revenue >= 0` |
+| Replaced by singular tests (no package dependency) | `unique_combination_of_columns` on the dedup key; `expression_is_true` for `revenue >= 0` and `unfilled_revenue >= 0` |
 | Singular tests (`tests/`) | `assert_no_returns_in_fct_order_lines`; `assert_no_null_accounts_in_marts`; **`assert_sunbelt_parity_with_python_pipeline`** (total = 215,395 ± 1; dormant = 199,027 ± 1; unfilled = 16,368 ± 1) |
 | Model contracts | Enforced contracts (column names and types) on all marts |
 
@@ -152,7 +152,6 @@ wholesale-account-health-dbt/
 │   ├── convert_online_retail_xlsx.py  # xlsx → two CSVs, no cleaning
 │   └── load_raw.py              # rerunnable: truncates and reloads raw tables
 ├── dbt_project.yml
-├── packages.yml                 # dbt_utils (added in weekend 3)
 ├── profiles.example.yml         # no credentials committed
 ├── models/
 │   ├── staging/
@@ -207,12 +206,11 @@ wholesale-account-health-dbt/
 
 ## 13. Open decisions
 
-- **Online Retail dedup rule (weekend 2):** drop exact duplicates only (all columns equal) or apply the Python key (invoice, stock code, customer, date). The Python key would also merge different prices or quantities on the same invoice line, so exact duplicates is the safer default; the parity test is unaffected because it runs on Sunbelt.
-- **Non-merchandise lines (weekend 2):** exclude postage, fees and adjustments from account revenue (likely) or keep them; either way they get an `exclusion_reason`.
-
-- dbt docs hosting: GitHub Pages (preferred) vs. committing a static `index.html`.
-- Dashboard: Power BI (strongest skill, default) vs. also a live Claude Data dashboard on the same BigQuery marts.
-- Whether to add a third source later (e.g., a public retail dataset) to strengthen the "conforming multiple sources" story.
+- **Decided (Nov 14): Online Retail dedup rule.** Drop exact duplicates only (all columns equal). Sunbelt keeps the Python key (order, product, account, date).
+- **Decided (Nov 14): non-merchandise lines.** Excluded from revenue with reason `non_merchandise`.
+- **Added rule, not in the Python pipeline:** lines with no price or a price of zero or less are excluded (`no_price`, 61 Online Retail lines, 0 Sunbelt lines), because a free line is not a sale and would count as recent activity. Sunbelt parity is unaffected.
+- **dbt_utils dropped.** Its checks are written as singular tests instead, so the project has no package dependencies.
+- **Docs hosting:** CI uploads a static docs page as a build artifact; publishing it on GitHub Pages is still open.
 
 ---
 
@@ -225,3 +223,9 @@ wholesale-account-health-dbt/
   - `stg_sunbelt__order_lines`: 3,421 rows, unique keys, 0 unparseable dates, 15 exact duplicates, 30 accounts.
   - Row-reconcile tests and the multiset sheet-overlap test (PR #1): 0 failures.
   - Next: weekend 2, intermediate and marts.
+- **Weekend 2 and most of weekend 3 (Nov 14, 2026): done.** Intermediate models, seven marts with enforced contracts, column docs, singular tests and the GitHub Actions workflow. Validated in BigQuery on the full data:
+  - **Parity: exact.** Sunbelt = $199,027 dormant + $16,368 unfilled = $215,395.
+  - Sunbelt: 3,406 lines kept, 15 duplicates excluded, 20 lines using the fulfillment assumption, 30 accounts (21 active, 9 dormant).
+  - Online Retail II: 776,596 lines kept (74.3%). Excluded: 235,151 no account, 18,390 returns or cancellations, 11,812 duplicates, 2,838 non-merchandise, 61 no price. 5,852 accounts (2,068 active, 817 at risk, 2,967 dormant); GBP 3,302,544 of GBP 17,068,583 sits in dormant accounts.
+  - All 100 column tests and 4 new singular tests: 0 failures.
+  - Still open: CI secrets (service account), docs site, Power BI dashboard, LinkedIn post.

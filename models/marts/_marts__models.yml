@@ -1,0 +1,479 @@
+version: 2
+
+models:
+  - name: fct_order_lines
+    description: One row per order line that passed every cleaning rule. Excluded lines are counted in mart_data_quality.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: order_line_key
+        description: Surrogate key of the order line.
+        data_type: string
+        data_tests:
+          - unique
+          - not_null
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: account_key
+        description: Account that placed the order.
+        data_type: string
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_accounts')
+                field: account_key
+      - name: product_key
+        description: Product ordered.
+        data_type: string
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_key
+      - name: order_id
+        description: Order or invoice number.
+        data_type: string
+        data_tests:
+          - not_null
+      - name: order_date
+        description: Order date.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: qty_ordered
+        description: Quantity ordered.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: qty_fulfilled
+        description: Quantity shipped; assumed equal to quantity ordered where the source does not say.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: unit_price
+        description: Price per unit, in the source currency.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: revenue
+        description: Quantity shipped times unit price.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: potential_unfilled_revenue
+        description: Ordered but not shipped, times unit price. 0 unless the source marks the line PARTIAL or UNFULFILLED.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: fulfillment_status
+        description: PARTIAL, UNFULFILLED or null.
+        data_type: string
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - PARTIAL
+                  - UNFULFILLED
+      - name: has_fulfillment_tracking
+        description: True when the source records shipped quantities.
+        data_type: boolean
+        data_tests:
+          - not_null
+      - name: used_fulfillment_assumption
+        description: True when the shipped quantity was blank and "shipped in full" was assumed.
+        data_type: boolean
+        data_tests:
+          - not_null
+
+  - name: dim_accounts
+    description: One row per account per source, built from the lines that passed cleaning.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: account_key
+        description: Hash of source and account ID.
+        data_type: string
+        data_tests:
+          - unique
+          - not_null
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: account_id
+        description: Customer ID (Online Retail) or account name (Sunbelt).
+        data_type: string
+        data_tests:
+          - not_null
+      - name: account_name
+        description: Account name. Same as account_id for Online Retail.
+        data_type: string
+        data_tests:
+          - not_null
+      - name: country
+        description: Country with the most order lines for the account. Null for Sunbelt.
+        data_type: string
+      - name: first_order_date
+        description: Date of the first kept order.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: last_order_date
+        description: Date of the most recent kept order.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: order_count
+        description: Number of distinct orders.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: total_revenue
+        description: Revenue across the whole period, in the source currency.
+        data_type: numeric
+        data_tests:
+          - not_null
+
+  - name: dim_products
+    description: One row per product per source, built from the lines that passed cleaning.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: product_key
+        description: Hash of source and product code.
+        data_type: string
+        data_tests:
+          - unique
+          - not_null
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: sku
+        description: Product code.
+        data_type: string
+        data_tests:
+          - not_null
+      - name: product_name
+        description: Most common description used for the product.
+        data_type: string
+      - name: line_count
+        description: Number of kept order lines.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: total_qty_fulfilled
+        description: Units shipped.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: total_revenue
+        description: Revenue across the whole period, in the source currency.
+        data_type: numeric
+        data_tests:
+          - not_null
+
+  - name: mart_account_recency
+    description: 'One row per account: days since its last order and the segment that puts it in. "Today" is the latest order date in each source, because these are historical datasets. Thresholds come from the dormant_days and at_risk_days vars.'
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: account_key
+        description: Hash of source and account ID.
+        data_type: string
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_accounts')
+                field: account_key
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: account_id
+        description: Customer ID or account name.
+        data_type: string
+        data_tests:
+          - not_null
+      - name: account_name
+        description: Account name.
+        data_type: string
+        data_tests:
+          - not_null
+      - name: country
+        description: Main country of the account. Null for Sunbelt.
+        data_type: string
+      - name: as_of_date
+        description: Latest order date in the source; recency is measured from here.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: first_order_date
+        description: Date of the first kept order.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: last_order_date
+        description: Date of the most recent kept order.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: days_since_last_order
+        description: as_of_date minus last_order_date, in days.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: account_status
+        description: Dormant (more than 90 days), At Risk (more than 45) or Active.
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Active
+                  - At Risk
+                  - Dormant
+      - name: order_count
+        description: Number of distinct orders.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: total_revenue
+        description: Revenue across the whole period, in the source currency.
+        data_type: numeric
+        data_tests:
+          - not_null
+
+  - name: mart_fulfillment_gaps
+    description: Potential unfilled revenue by product. Only sources that record shipped quantities appear; a source without fulfillment tracking is "not measurable", not "no gaps".
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: product_key
+        description: Hash of source and product code.
+        data_type: string
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_key
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: sku
+        description: Product code.
+        data_type: string
+        data_tests:
+          - not_null
+      - name: product_name
+        description: Product description.
+        data_type: string
+      - name: line_count
+        description: Number of order lines.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: short_line_count
+        description: Order lines with potential unfilled revenue.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: qty_ordered
+        description: Units ordered.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: qty_fulfilled
+        description: Units shipped.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: fill_rate
+        description: Units shipped divided by units ordered.
+        data_type: numeric
+      - name: revenue
+        description: Revenue from shipped units.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: potential_unfilled_revenue
+        description: Ordered but not shipped, times unit price.
+        data_type: numeric
+        data_tests:
+          - not_null
+
+  - name: mart_data_quality
+    description: Order lines per source, split into kept lines and lines excluded for each reason. One row per source and line status.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: data_quality_key
+        description: Hash of source and line status.
+        data_type: string
+        data_tests:
+          - unique
+          - not_null
+      - name: source_system
+        description: 'Which source the row came from: online_retail or sunbelt.'
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: line_status
+        description: '"included" or the exclusion reason.'
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - included
+                  - duplicate_line
+                  - unparseable_date
+                  - missing_account
+                  - return_or_cancellation
+                  - bad_debt_adjustment
+                  - non_merchandise
+                  - no_price
+                  - missing_quantity
+      - name: is_included
+        description: True for the "included" row.
+        data_type: boolean
+        data_tests:
+          - not_null
+      - name: line_count
+        description: Number of order lines.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: share_of_source_lines
+        description: line_count divided by all lines of that source.
+        data_type: float64
+        data_tests:
+          - not_null
+      - name: lines_using_fulfillment_assumption
+        description: Lines where the shipped quantity was blank and "shipped in full" was assumed.
+        data_type: int64
+        data_tests:
+          - not_null
+
+  - name: mart_opportunity_summary
+    description: 'Headline numbers, one row per source. Amounts are in the source currency (GBP for Online Retail, USD for Sunbelt), so do not add sources together. Wording matters: these are revenue at risk and potential unfilled revenue, not lost revenue.'
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: source_system
+        description: Which source the row describes.
+        data_type: string
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - online_retail
+                  - sunbelt
+      - name: as_of_date
+        description: Latest order date in the source.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: account_count
+        description: Accounts with at least one kept order.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: active_account_count
+        description: Accounts that ordered in the last 45 days.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: at_risk_account_count
+        description: Accounts whose last order was 46 to 90 days ago.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: dormant_account_count
+        description: Accounts whose last order was more than 90 days ago.
+        data_type: int64
+        data_tests:
+          - not_null
+      - name: total_revenue
+        description: Revenue of all accounts across the whole period.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: revenue_in_at_risk_accounts
+        description: Whole-period revenue of At Risk accounts. Not part of the headline.
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: revenue_at_risk_dormant
+        description: 'Whole-period revenue of Dormant accounts: what those accounts were worth before they stopped ordering.'
+        data_type: numeric
+        data_tests:
+          - not_null
+      - name: has_fulfillment_tracking
+        description: True when the source records shipped quantities.
+        data_type: boolean
+        data_tests:
+          - not_null
+      - name: potential_unfilled_revenue
+        description: Ordered but not shipped, times unit price. Null when the source does not track shipments (not measurable).
+        data_type: numeric
+      - name: total_revenue_opportunity
+        description: revenue_at_risk_dormant plus potential_unfilled_revenue (where measurable).
+        data_type: numeric
+        data_tests:
+          - not_null
